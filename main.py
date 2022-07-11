@@ -17,6 +17,8 @@ class MainWindow(QMainWindow):
         logger.info("create_new_window called")
         browser = QWebEngineView()
         browser.setAttribute(Qt.WA_DeleteOnClose)
+        browser.setWindowTitle(f"ezFlyff - {profile_name}")
+        browser.resize(1000, 720)
 
         profile = QWebEngineProfile(profile_name, browser)
         profile.setHttpUserAgent(
