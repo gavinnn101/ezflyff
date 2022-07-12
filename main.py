@@ -1,12 +1,50 @@
+import configparser
 import os
+import random
 import sys
-from PyQt5.QtCore import QUrl, Qt
+import threading
+import traceback
+import time
+import win32api
+from PyQt5.QtCore import QUrl, Qt, pyqtSlot, QThreadPool, QRunnable
 from PyQt5.QtWebEngineWidgets import QWebEnginePage, QWebEngineProfile, QWebEngineView
 from PyQt5.QtWidgets import QApplication, QMainWindow
 
 from loguru import logger
 
-import configparser
+import win32con
+from win32gui import FindWindow, SendMessage
+from key_codes import KEY_MAP
+
+
+
+class Worker(QRunnable):
+    """
+    Worker thread
+    Inherits from QRunnable to handler worker thread setup, signals and wrap-up.
+    :param callback: The function callback to run on this worker thread. Supplied args and
+                     kwargs will be passed through to the runner.
+    :type callback: function
+    :param args: Arguments to pass to the callback function
+    :param kwargs: Keywords to pass to the callback function
+    """
+    def __init__(self, fn, *args, **kwargs):
+        super(Worker, self).__init__()
+        # Store constructor arguments (re-used for processing)
+        self.fn = fn
+        self.args = args
+        self.kwargs = kwargs
+
+
+    @pyqtSlot()
+    def run(self):
+        """
+        Initialise the runner function with passed args, kwargs.
+        """
+        try:
+            self.fn(*self.args, **self.kwargs)
+        except:
+            traceback.logger.info_exc()
 
 
 class MainWindow(QMainWindow):
@@ -15,6 +53,9 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("ezFlyff")
         self.flyff_url = "https://universe.flyff.com/play"
         self.ezflyff_dir = sys.path[0]  # Full path to directory where the script is launched from.
+
+        self.threadpool = QThreadPool.globalInstance()
+
 
     def create_new_window(self, url, profile_name, profile_settings):
         logger.info("create_new_window called")
@@ -40,6 +81,11 @@ class MainWindow(QMainWindow):
         return browser
 
 
+    def start_assist_loop(self, profile_name, profile_settings):
+        worker = Worker(assist_loop, profile_name, profile_settings)
+        self.threadpool.start(worker)
+
+
 def create_settings_dir(profile_name):
     logger.info("create_settings_dir called")
     dir_path = f"{sys.path[0]}\\profiles\\{profile_name}"
@@ -57,39 +103,109 @@ def get_profile_settings(profile_name):
     settings_path = f"{sys.path[0]}\\profiles\\{profile_name}\\settings.ini"
     if not os.path.isfile(settings_path):
         logger.info(f"Creating settings.ini for profile {profile_name}")
+        # Add window settings to settings.ini
         config.add_section("window")
         config.set("window", "window_width", "800")
         config.set("window", "window_height", "600")
         config.set("window", "window_x_pos", "0")
         config.set("window", "window_y_pos", "0")
+        # Add assist settings to settings.ini
+        config.add_section("assist")
+        config.set("assist", "toggle_key", "-")
+        config.set("assist", "heal_hotkey", "3")
+        config.set("assist", "heal_interval", "2")
+        config.set("assist", "buff_hotkey", "4")
+        config.set("assist", "buff_interval", "300")
         with open(settings_path, "w") as config_file:
             config.write(config_file)
     config.read(settings_path)
     return config
 
-views = []
-profiles = ['main', 'fullsupport']
 
-app = QApplication(sys.argv)
-app.setApplicationName("ezFlyff")
+def press_key(handle, hotkey):
+    SendMessage(handle, win32con.WM_KEYDOWN, ord(hotkey), 0)
+    time.sleep(0.5 + random.random())
+    SendMessage(handle, win32con.WM_KEYUP, ord(hotkey), 0)
 
-window = MainWindow()
-for acc in profiles:
-    logger.info(f"Launching {acc}")
-    create_settings_dir(acc)
-    settings = get_profile_settings(acc)
-    view = window.create_new_window(window.flyff_url, acc, settings)
-    views.append(view)  # Keep reference to window to prevent it from closing
-sys.exit(app.exec_())
 
+def get_game_handle(profile_name):
+    logger.debug("get_game_handle called")
+    game_window_name = f"ezFlyff - {profile_name}"
+    game_window_class = "Qt5152QWindowIcon"
+    return FindWindow(game_window_class, game_window_name)
+
+
+def assist_loop(profile_name, profile_settings):
+    logger.debug("assist_loop called")
+    # map hotkeys to key codes
+    toggle_key = profile_settings["assist"]["toggle_key"]
+    heal_hotkey = profile_settings["assist"]["heal_hotkey"]
+    heal_interval = int(profile_settings["assist"]["heal_interval"])
+    buff_hotkey = profile_settings["assist"]["buff_hotkey"]
+    buff_interval = int(profile_settings["assist"]["buff_interval"])
+    # Get game handle
+    game_handle = get_game_handle(profile_name)
+
+    def buff_character():
+        logger.info("pressing buff hotkey")
+        press_key(game_handle, buff_hotkey)
+        logger.info("Sleeping 5 seconds while character buffs")
+        time.sleep(5 + random.random())  # To make sure buffs arent interrupted by a heal
+        buff_timer = time.perf_counter()  # Reset buff timer
+        return buff_timer
+
+    def heal_character():
+        logger.info(f"Sleeping {heal_interval} seconds...")
+        time.sleep(heal_interval + random.random())
+        logger.info(f"pressing heal hotkey")
+        press_key(game_handle, heal_hotkey)
+
+    assist_mode = False
+
+    # Wait for user to toggle assist mode
+    while True:
+        if win32api.GetAsyncKeyState(KEY_MAP[toggle_key]):
+            assist_mode = True
+            break
+        else:
+            assist_mode = False
+
+    if assist_mode:
+        logger.info(f"{profile_name} - Assist mode enabled")
+        buff_timer = buff_character()
+        while assist_mode:
+            heal_character()
+            buff_timer_check = time.perf_counter()
+            if buff_timer_check - buff_timer > buff_interval:
+                buff_timer = buff_character()
+            if win32api.GetAsyncKeyState(KEY_MAP[toggle_key]):
+                logger.info(f"{profile_name} - Assist mode disabled")
+                assist_mode = False
+                break
+            else:
+                continue
+
+
+def multithreading(function):
+    threading.Thread(target=function).start()
+
+
+if __name__ == "__main__":
+    views = []
+    profiles = ['fullsupport']
+
+    app = QApplication(sys.argv)
+    app.setApplicationName("ezFlyff")
+
+    window = MainWindow()
+    for acc in profiles:
+        logger.info(f"Launching {acc}")
+        create_settings_dir(acc)
+        settings = get_profile_settings(acc)
+        view = window.create_new_window(window.flyff_url, acc, settings)
+        views.append(view)  # Keep reference to window to prevent it from closing
+        window.start_assist_loop(acc, settings)
+    sys.exit(app.exec_())
 
 # Auto assist notes
-### Find window handle by title possibly (could use "alt" tag to find it, etc)
-### Send key event(s) down / up to window handle
-### Key event may block window... If so we probably multithread the keypresses (pyflyff is using multithreading)
-###
-### Add slight randomization to timers below
-### Heal every x seconds
-### Buff every x seconds ( action chain hotkey could likely be used for this )
 ### "follow target" hotkey every x seconds
-###
