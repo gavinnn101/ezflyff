@@ -15,7 +15,7 @@ import win32con
 from win32gui import FindWindow, SendMessage
 from key_codes import KEY_MAP
 
-
+ezflyff_dir = sys.path[0]  # Full path to directory where the script is launched from.
 
 class Worker(QRunnable):
     """
@@ -51,7 +51,6 @@ class MainWindow(QMainWindow):
         super(MainWindow, self).__init__(*args, **kwargs)
         self.setWindowTitle("ezFlyff")
         self.flyff_url = "https://universe.flyff.com/play"
-        self.ezflyff_dir = sys.path[0]  # Full path to directory where the script is launched from.
 
         self.threadpool = QThreadPool.globalInstance()
 
@@ -70,8 +69,8 @@ class MainWindow(QMainWindow):
         profile.setHttpUserAgent(
             "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.132 Safari/537.36"
         )
-        profile.setCachePath(f"{self.ezflyff_dir}\\profiles\\{profile_name}\\cache")
-        profile.setPersistentStoragePath(f"{self.ezflyff_dir}\\profiles\\{profile_name}\\storage")
+        profile.setCachePath(f"{ezflyff_dir}\\profiles\\{profile_name}\\cache")
+        profile.setPersistentStoragePath(f"{ezflyff_dir}\\profiles\\{profile_name}\\storage")
         page = QWebEnginePage(profile, browser)
 
         browser.setPage(page)
@@ -87,7 +86,7 @@ class MainWindow(QMainWindow):
 
 def create_settings_dir(profile_name):
     logger.info("create_settings_dir called")
-    dir_path = f"{sys.path[0]}\\profiles\\{profile_name}"
+    dir_path = f"{ezflyff_dir}\\profiles\\{profile_name}"
 
     if not os.path.exists(dir_path):
         os.makedirs(dir_path)
@@ -99,7 +98,7 @@ def create_settings_dir(profile_name):
 def get_profile_settings(profile_name):
     logger.info("get_profile_settings called")
     config = configparser.ConfigParser()
-    settings_path = f"{sys.path[0]}\\profiles\\{profile_name}\\settings.ini"
+    settings_path = f"{ezflyff_dir}\\profiles\\{profile_name}\\settings.ini"
     if not os.path.isfile(settings_path):
         logger.info(f"Creating settings.ini for profile {profile_name}")
         # Add window settings to settings.ini
