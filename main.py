@@ -2,7 +2,6 @@ import configparser
 import os
 import random
 import sys
-import threading
 import traceback
 import time
 import win32api
