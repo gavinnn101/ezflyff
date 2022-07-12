@@ -53,7 +53,7 @@ class Worker(QRunnable):
         try:
             self.fn(*self.args, **self.kwargs)
         except:
-            traceback.logger.info_exc()
+            traceback.print_exc()
 
 
 class MainWindow(QMainWindow):
@@ -206,6 +206,7 @@ def assist_loop(profile_name, profile_settings):
 
 def load_profiles():
     """Loads profiles from profiles directory or creates a 'default' if none exist."""
+    profile_list = []
     profiles_path = f"{ezflyff_dir}\\profiles"
     if not os.path.exists(profiles_path):
         os.makedirs(profiles_path)
@@ -218,11 +219,13 @@ def load_profiles():
         profiles.append("default")
     else:
         for profile in profiles:
-            profiles.append(profile)
+            profile_list.append(profile)
+    return profiles
 
 
 if __name__ == "__main__":
     views = []
+    print('test')
     profiles = load_profiles()
 
 
