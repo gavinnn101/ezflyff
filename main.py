@@ -67,6 +67,7 @@ class MainWindow(QMainWindow):
 
 
     def create_new_window(self, url, profile_name, profile_settings):
+        """Create game window(QWebEngineView) with current profile's settings."""
         logger.info("create_new_window called")
         browser = QWebEngineView()
         browser.setAttribute(Qt.WA_DeleteOnClose)
@@ -96,6 +97,7 @@ class MainWindow(QMainWindow):
 
 
 def create_settings_dir(profile_name):
+    """Creates the profile directory and subdirectories if they don't exist."""
     logger.info("create_settings_dir called")
     dir_path = f"{ezflyff_dir}\\profiles\\{profile_name}"
 
@@ -107,6 +109,7 @@ def create_settings_dir(profile_name):
 
 
 def get_profile_settings(profile_name):
+    """Loads profile settings from profile_settings.ini or creates a default if it doesn't exist."""
     logger.info("get_profile_settings called")
     config = configparser.ConfigParser()
     settings_path = f"{ezflyff_dir}\\profiles\\{profile_name}\\settings.ini"
@@ -132,6 +135,7 @@ def get_profile_settings(profile_name):
 
 
 def press_key(handle, hotkey):
+    """Gets key map for hotkey, presses the hotkey, and waits a randomized fraction of a second."""
     hotkey = KEY_MAP[hotkey]
     SendMessage(handle, win32con.WM_KEYDOWN, hotkey, 0)
     time.sleep(0.5 + random.random())
@@ -139,6 +143,7 @@ def press_key(handle, hotkey):
 
 
 def get_game_handle(profile_name):
+    """Gets handle to game window."""
     logger.debug("get_game_handle called")
     game_window_name = f"ezFlyff - {profile_name}"
     game_window_class = "Qt5152QWindowIcon"
@@ -146,6 +151,7 @@ def get_game_handle(profile_name):
 
 
 def assist_loop(profile_name, profile_settings):
+    """Loop that runs on separate thread to heal and buff target.(off until hotkey pressed)"""
     logger.debug("assist_loop called")
     # map hotkeys to key codes
     toggle_key = profile_settings["assist"]["toggle_key"]
@@ -157,6 +163,7 @@ def assist_loop(profile_name, profile_settings):
     game_handle = get_game_handle(profile_name)
 
     def buff_character():
+        """Presses the buff hotkey and waits for the buff interval."""
         logger.info("pressing buff hotkey")
         press_key(game_handle, buff_hotkey)
         logger.info("Sleeping 5 seconds while character buffs")
@@ -165,6 +172,7 @@ def assist_loop(profile_name, profile_settings):
         return buff_timer
 
     def heal_character():
+        """Presses the heal hotkey and sleeps for the heal interval."""
         logger.info(f"Sleeping {heal_interval} seconds...")
         time.sleep(heal_interval + random.random())
         logger.info(f"pressing heal hotkey")
@@ -196,22 +204,40 @@ def assist_loop(profile_name, profile_settings):
                 continue
 
 
+def load_profiles():
+    """Loads profiles from profiles directory or creates a 'default' if none exist."""
+    profiles_path = f"{ezflyff_dir}\\profiles"
+    if not os.path.exists(profiles_path):
+        os.makedirs(profiles_path)
+        logger.info(f"Created directory {profiles_path}")
+
+    profiles = os.listdir(profiles_path)
+    if len(profiles) == 0:
+        logger.info("No profiles found. Creating default profile.")
+        create_settings_dir("default")
+        profiles.append("default")
+    else:
+        for profile in profiles:
+            profiles.append(profile)
+
+
 if __name__ == "__main__":
     views = []
-    profiles = ['fullsupport']
+    profiles = load_profiles()
+
 
     app = QApplication(sys.argv)
     app.setApplicationName("ezFlyff")
     app.setWindowIcon(QIcon(f"{ezflyff_dir}\\flyff.ico"))
 
     window = MainWindow()
-    for acc in profiles:
-        logger.info(f"Launching {acc}")
-        create_settings_dir(acc)
-        settings = get_profile_settings(acc)
-        view = window.create_new_window(window.flyff_url, acc, settings)
+    for profile in profiles:
+        logger.info(f"Launching {profile}")
+        create_settings_dir(profile)
+        settings = get_profile_settings(profile)
+        view = window.create_new_window(window.flyff_url, profile, settings)
         views.append(view)  # Keep reference to window to prevent it from closing
-        window.start_assist_loop(acc, settings)
+        window.start_assist_loop(profile, settings)
     sys.exit(app.exec_())
 
 # Auto assist notes
