@@ -8,6 +8,7 @@ import win32api
 from PyQt5.QtCore import QUrl, Qt, pyqtSlot, QThreadPool, QRunnable
 from PyQt5.QtWebEngineWidgets import QWebEnginePage, QWebEngineProfile, QWebEngineView
 from PyQt5.QtWidgets import QApplication, QMainWindow
+from PyQt5.QtGui import QIcon
 
 from loguru import logger
 
@@ -15,7 +16,16 @@ import win32con
 from win32gui import FindWindow, SendMessage
 from key_codes import KEY_MAP
 
-ezflyff_dir = sys.path[0]  # Full path to directory where the script is launched from.
+
+# https://stackoverflow.com/questions/67599432/setting-the-same-icon-as-application-icon-in-task-bar-for-pyqt5-application
+# Get taskbar to display the correct icon
+import ctypes
+myappid = 'mycompany.myproduct.subproduct.version' # arbitrary string
+ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+
+# Full path to directory where the script is launched from.
+ezflyff_dir = sys.path[0]
+
 
 class Worker(QRunnable):
     """
@@ -50,6 +60,7 @@ class MainWindow(QMainWindow):
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
         self.setWindowTitle("ezFlyff")
+        self.setWindowIcon(QIcon(f"{ezflyff_dir}\\flyff.ico"))
         self.flyff_url = "https://universe.flyff.com/play"
 
         self.threadpool = QThreadPool.globalInstance()
@@ -191,6 +202,7 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
     app.setApplicationName("ezFlyff")
+    app.setWindowIcon(QIcon(f"{ezflyff_dir}\\flyff.ico"))
 
     window = MainWindow()
     for acc in profiles:
