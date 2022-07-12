@@ -123,9 +123,10 @@ def get_profile_settings(profile_name):
 
 
 def press_key(handle, hotkey):
-    SendMessage(handle, win32con.WM_KEYDOWN, ord(hotkey), 0)
+    hotkey = KEY_MAP[hotkey]
+    SendMessage(handle, win32con.WM_KEYDOWN, hotkey, 0)
     time.sleep(0.5 + random.random())
-    SendMessage(handle, win32con.WM_KEYUP, ord(hotkey), 0)
+    SendMessage(handle, win32con.WM_KEYUP, hotkey, 0)
 
 
 def get_game_handle(profile_name):
@@ -184,10 +185,6 @@ def assist_loop(profile_name, profile_settings):
                 break
             else:
                 continue
-
-
-def multithreading(function):
-    threading.Thread(target=function).start()
 
 
 if __name__ == "__main__":
