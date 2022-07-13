@@ -184,7 +184,7 @@ def assist_loop(profile_name, profile_settings, toggle_key_listeners):
 
     def buff_character():
         """Presses the buff hotkey and waits for the buff interval."""
-        logger.info("pressing buff hotkey")
+        logger.info(f"pressing buff hotkey {buff_hotkey} on {profile_name}")
         press_key(game_handle, buff_hotkey)
         logger.info("Sleeping 5 seconds while character buffs")
         time.sleep(5 + random.random())  # To make sure buffs arent interrupted by a heal
@@ -195,16 +195,19 @@ def assist_loop(profile_name, profile_settings, toggle_key_listeners):
         """Presses the heal hotkey and sleeps for the heal interval."""
         logger.info(f"Sleeping {heal_interval} seconds...")
         time.sleep(heal_interval + random.random())
-        logger.info(f"pressing heal hotkey")
+        logger.info(f"pressing heal hotkey {heal_hotkey} on {profile_name}.")
         press_key(game_handle, heal_hotkey)
 
     # Wait for user to toggle assist mode
     while True:
         if toggle_key_listeners[profile_name] == True:
-            logger.info(f"{profile_name} - Assist mode enabled")
+            # Initial buff
             buff_timer = buff_character()
+            # Loop until toggle key is pressed again
             while True:
                 if toggle_key_listeners[profile_name] == True:
+                    # 95% sure heal_character() is blocking keyboard input. Maybe a QTimer could fix it but didn't have a lot of luck...
+                    # Tried a QThread but then you need to put the sleep in this thread which I believe is the root of the problem.
                     heal_character()
                     buff_timer_check = time.perf_counter()
                     if buff_timer_check - buff_timer > buff_interval:
@@ -253,4 +256,3 @@ if __name__ == "__main__":
         logger.success(window.toggle_key_listeners)
         window.start_toggle_key_listener(profile, settings['assist']['toggle_key'])
     sys.exit(app.exec_())
-
