@@ -198,8 +198,9 @@ def assist_loop(profile_name, profile_settings, toggle_key_listeners):
         logger.info(f"pressing heal hotkey {heal_hotkey} on {profile_name}.")
         press_key(game_handle, heal_hotkey)
 
-    # Wait for user to toggle assist mode
+
     while True:
+        # Loop until toggle key is pressed to turn on auto assist
         if toggle_key_listeners[profile_name] == True:
             # Initial buff
             buff_timer = buff_character()
@@ -253,6 +254,5 @@ if __name__ == "__main__":
         views.append(view)  # Keep reference to window to prevent it from closing
         window.start_assist_loop(profile, settings)
         window.toggle_key_listeners[profile] = False
-        logger.success(window.toggle_key_listeners)
         window.start_toggle_key_listener(profile, settings['assist']['toggle_key'])
     sys.exit(app.exec_())
