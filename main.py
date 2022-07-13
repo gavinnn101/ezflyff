@@ -64,6 +64,7 @@ class MainWindow(QMainWindow):
         self.flyff_url = "https://universe.flyff.com/play"
 
         self.threadpool = QThreadPool.globalInstance()
+        self.toggle_key_listeners = {}
 
 
     def create_new_window(self, url, profile_name, profile_settings):
@@ -92,8 +93,27 @@ class MainWindow(QMainWindow):
 
 
     def start_assist_loop(self, profile_name, profile_settings):
-        worker = Worker(assist_loop, profile_name, profile_settings)
+        worker = Worker(assist_loop, profile_name, profile_settings, self.toggle_key_listeners)
         self.threadpool.start(worker)
+
+    
+    def start_toggle_key_listener(self, profile_name, toggle_key):
+        worker = Worker(toggle_key_listener, profile_name, toggle_key, self.toggle_key_listeners)
+        self.threadpool.start(worker)
+
+
+def toggle_key_listener(profile_name, toggle_key, toggle_key_listeners):
+    """Toggles key listener."""
+    while True:
+        if win32api.GetAsyncKeyState(KEY_MAP[toggle_key]):
+            if toggle_key_listeners[profile_name] == True:
+                logger.info(f"{profile_name} - Assist mode disabled")
+                toggle_key_listeners[profile_name] = False
+                time.sleep(2)
+            else:
+                logger.info(f"{profile_name} - Assist mode enabled")
+                toggle_key_listeners[profile_name] = True
+                time.sleep(2)
 
 
 def create_settings_dir(profile_name):
@@ -150,7 +170,7 @@ def get_game_handle(profile_name):
     return FindWindow(game_window_class, game_window_name)
 
 
-def assist_loop(profile_name, profile_settings):
+def assist_loop(profile_name, profile_settings, toggle_key_listeners):
     """Loop that runs on separate thread to heal and buff target.(off until hotkey pressed)"""
     logger.debug("assist_loop called")
     # map hotkeys to key codes
@@ -178,30 +198,20 @@ def assist_loop(profile_name, profile_settings):
         logger.info(f"pressing heal hotkey")
         press_key(game_handle, heal_hotkey)
 
-    assist_mode = False
-
     # Wait for user to toggle assist mode
     while True:
-        if win32api.GetAsyncKeyState(KEY_MAP[toggle_key]):
-            assist_mode = True
-            break
-        else:
-            assist_mode = False
+        if toggle_key_listeners[profile_name] == True:
+            logger.info(f"{profile_name} - Assist mode enabled")
+            buff_timer = buff_character()
+            while True:
+                if toggle_key_listeners[profile_name] == True:
+                    heal_character()
+                    buff_timer_check = time.perf_counter()
+                    if buff_timer_check - buff_timer > buff_interval:
+                        buff_timer = buff_character()
+                else:
+                    break
 
-    if assist_mode:
-        logger.info(f"{profile_name} - Assist mode enabled")
-        buff_timer = buff_character()
-        while assist_mode:
-            heal_character()
-            buff_timer_check = time.perf_counter()
-            if buff_timer_check - buff_timer > buff_interval:
-                buff_timer = buff_character()
-            if win32api.GetAsyncKeyState(KEY_MAP[toggle_key]):
-                logger.info(f"{profile_name} - Assist mode disabled")
-                assist_mode = False
-                break
-            else:
-                continue
 
 
 def load_profiles():
@@ -225,9 +235,7 @@ def load_profiles():
 
 if __name__ == "__main__":
     views = []
-    print('test')
     profiles = load_profiles()
-
 
     app = QApplication(sys.argv)
     app.setApplicationName("ezFlyff")
@@ -241,7 +249,8 @@ if __name__ == "__main__":
         view = window.create_new_window(window.flyff_url, profile, settings)
         views.append(view)  # Keep reference to window to prevent it from closing
         window.start_assist_loop(profile, settings)
+        window.toggle_key_listeners[profile] = False
+        logger.success(window.toggle_key_listeners)
+        window.start_toggle_key_listener(profile, settings['assist']['toggle_key'])
     sys.exit(app.exec_())
 
-# Auto assist notes
-### "follow target" hotkey every x seconds
